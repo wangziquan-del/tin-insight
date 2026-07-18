@@ -27,7 +27,13 @@ jobs:
         uses: actions/checkout@v6
       - name: Configure Pages
         uses: actions/configure-pages@v5
-      - name: Refresh SHFE/LME tin quotes
+      - name: Refresh Zhiji daily fundamentals
+        env:
+          ZHIJI_API_KEY: ${{ secrets.ZHIJI_API_KEY }}
+        run: python scripts/refresh_zhiji_data.py
+      - name: Refresh Zhiji-first market quotes
+        env:
+          ZHIJI_API_KEY: ${{ secrets.ZHIJI_API_KEY }}
         run: python scripts/fetch_quotes.py
       - name: Prepare static site
         run: |
