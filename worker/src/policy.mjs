@@ -138,7 +138,13 @@ function modelResponseText(result) {
   if (!result) return '';
   if (typeof result.response === 'string') return result.response;
   if (result.choices && result.choices[0] && result.choices[0].message) {
-    return String(result.choices[0].message.content || '');
+    const content = result.choices[0].message.content;
+    if (Array.isArray(content)) {
+      return content.map(function (part) {
+        return typeof part === 'string' ? part : String(part && part.text || '');
+      }).join('');
+    }
+    return String(content || '');
   }
   return result.result ? modelResponseText(result.result) : '';
 }
@@ -172,8 +178,9 @@ async function localizeBatch(env, records) {
       },
     ],
     response_format: { type: 'json_object' },
+    chat_template_kwargs: { enable_thinking: false },
     temperature: 0.1,
-    max_tokens: 1600,
+    max_completion_tokens: 1600,
   });
   const parsed = parseModelJson(result);
   return Array.isArray(parsed.items) ? parsed.items : [];

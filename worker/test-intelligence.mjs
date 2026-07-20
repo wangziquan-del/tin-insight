@@ -170,6 +170,8 @@ const mockAi = {
   async run(model, input) {
     assert.equal(model, '@cf/zai-org/glm-4.7-flash');
     assert.equal(input.response_format.type, 'json_object');
+    assert.equal(input.chat_template_kwargs.enable_thinking, false);
+    assert.equal(input.max_completion_tokens, 1600);
     return {
       response: JSON.stringify({
         items: Array.from({ length: 12 }, function (_, id) {
