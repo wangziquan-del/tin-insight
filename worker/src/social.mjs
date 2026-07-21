@@ -7,9 +7,10 @@ import {
 
 const SOCIAL_MCP_URL = 'https://zhiji-ai.xyz/mcp/xhs-douyin';
 const SOCIAL_MCP_COOLDOWN_SECONDS = 3600;
+const SOCIAL_MCP_COOLDOWN_SLOT = 'v2';
 
 function cooldownKey(toolName) {
-  return new Request('https://tin-insight-social.internal/cooldown/' + toolName, { method: 'GET' });
+  return new Request('https://tin-insight-social.internal/cooldown/' + SOCIAL_MCP_COOLDOWN_SLOT + '/' + toolName, { method: 'GET' });
 }
 
 async function activeCooldown(toolName) {
