@@ -243,7 +243,7 @@ export async function buildSocialPayload(env) {
   });
   return {
     updated_at: shanghaiTimestamp(),
-    source: '小红书 + 抖音远程 MCP；15 分钟边缘缓存',
+    source: '网络平台远程数据源；15 分钟边缘缓存',
     method: '标题关键词倾向与互动热度代理，不读取或伪造评论正文',
     sources: sources,
     items: items,
