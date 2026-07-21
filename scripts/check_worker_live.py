@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Smoke-test the public Worker and its Chinese policy localization."""
+"""Smoke-test the public Worker policy localization and remote social MCP."""
 
 from __future__ import annotations
 
@@ -27,7 +27,7 @@ def has_chinese(value: object) -> bool:
 
 def main() -> None:
     health = get_json("/health")
-    if not health.get("ok") or not health.get("ai_configured"):
+    if not health.get("ok") or not health.get("ai_configured") or not health.get("social_configured"):
         raise RuntimeError(f"Worker health is not ready: {health}")
 
     policy = get_json("/api/policy?smoke=github")
@@ -37,12 +37,30 @@ def main() -> None:
         raise RuntimeError(f"Policy AI source failed: {ai_source}")
     if not all(has_chinese(item.get("title_zh")) and has_chinese(item.get("summary_zh")) for item in items):
         raise RuntimeError("Policy feed contains an item without a Chinese title or summary")
+    if any("RSS 摘要未提供更多细节" in str(item.get("summary_zh") or "") for item in items):
+        raise RuntimeError("Policy feed still contains the deprecated generic RSS placeholder")
+    macro_items = [item for item in items if str(item.get("category") or "").startswith("MACRO")]
+    if any(str(item.get("title_zh") or "").startswith("锡产业动态｜") for item in macro_items):
+        raise RuntimeError("A macro event is still mislabeled as a tin-industry update")
+
+    social = get_json("/api/social?smoke=github-v2")
+    social_sources = social.get("sources") or {}
+    for platform in ("小红书", "抖音"):
+        status = social_sources.get(platform) or {}
+        if not status.get("ok") or int(status.get("count") or 0) <= 0:
+            raise RuntimeError(f"{platform} remote MCP source failed: {status}")
 
     sample = [
         {"title_zh": item["title_zh"], "summary_zh": item["summary_zh"]}
         for item in items[:2]
     ]
-    print(json.dumps({"ok": True, "count": len(items), "sample": sample}, ensure_ascii=False))
+    print(json.dumps({
+        "ok": True,
+        "policy_count": len(items),
+        "policy_sample": sample,
+        "social_sources": social_sources,
+        "social_count": len(social.get("items") or []),
+    }, ensure_ascii=False))
 
 
 if __name__ == "__main__":

@@ -130,12 +130,12 @@ export async function handleIntelligenceRequest(request, env, ctx) {
     });
   }
   if (url.pathname === '/api/social') {
-    return cachedJson(request, ctx, 'social', INTELLIGENCE_TTL_SECONDS, INTELLIGENCE_STALE_SECONDS, function () {
+    return cachedJson(request, ctx, 'social-remote-v2', INTELLIGENCE_TTL_SECONDS, INTELLIGENCE_STALE_SECONDS, function () {
       return buildSocialPayload(env);
     });
   }
   if (url.pathname === '/api/policy') {
-    return cachedJson(request, ctx, 'policy-zh-v3', INTELLIGENCE_TTL_SECONDS, INTELLIGENCE_STALE_SECONDS, function () {
+    return cachedJson(request, ctx, 'policy-zh-v4', INTELLIGENCE_TTL_SECONDS, INTELLIGENCE_STALE_SECONDS, function () {
       return buildPolicyPayload(env);
     });
   }

@@ -50,6 +50,7 @@ const rss = [
 
 let failXhs = false;
 let feishuCalls = 0;
+let sawArticleContext = false;
 globalThis.fetch = async function (input, init) {
   const url = String(input);
   if (url.indexOf('/guan/api/kline') >= 0) {
@@ -101,14 +102,16 @@ globalThis.fetch = async function (input, init) {
         }],
       }
       : {
-        items: [{
-          desc: '沪锡高位回调风险',
-          author: '抖音作者',
-          digg_count: 20,
-          comment_count: 4,
-          create_time: 1784461336,
-          url: 'https://www.douyin.com/video/test',
-        }],
+        data: {
+          results: [{
+            desc: '沪锡高位回调风险',
+            author: '抖音作者',
+            digg_count: 20,
+            comment_count: 4,
+            create_time: 1784461336,
+            url: 'https://www.douyin.com/video/test',
+          }],
+        },
       };
     return new Response(JSON.stringify({
       jsonrpc: '2.0',
@@ -146,6 +149,13 @@ globalThis.fetch = async function (input, init) {
       headers: { 'Content-Type': 'application/rss+xml' },
     });
   }
+  if (/\/(?:example\.htm|example\/)$/i.test(url)) {
+    return new Response([
+      '<html><head><meta name="description" content="Official article context for the policy announcement."></head>',
+      '<body><article><h1>Policy announcement</h1><p>The committee published official article details,',
+      'including the decision, its effective date and the figures stated in the release.</p></article></body></html>',
+    ].join(''), { status: 200, headers: { 'Content-Type': 'text/html; charset=utf-8' } });
+  }
   if (url.indexOf('open.feishu.cn/') >= 0) {
     feishuCalls += 1;
     return new Response(JSON.stringify({ code: 0, msg: 'ok' }), {
@@ -172,13 +182,14 @@ const mockAi = {
     assert.equal(input.response_format.type, 'json_object');
     assert.equal(input.chat_template_kwargs.enable_thinking, false);
     assert.equal(input.max_completion_tokens, 1600);
+    sawArticleContext = sawArticleContext || input.messages[1].content.includes('official article details');
     return {
       response: JSON.stringify({
         items: Array.from({ length: 12 }, function (_, id) {
           return {
             id: id,
             title_zh: '中文政策标题 ' + id,
-            summary_zh: '这是严格根据 RSS 标题与摘要生成的中文内容，用于测试页面展示，同时保留原文链接供进一步核验。',
+            summary_zh: '这是严格根据标题、官方正文与来源日期生成的中文事实摘要，用于测试页面展示，同时保留原文链接供进一步核验。',
           };
         }),
       }),
@@ -190,9 +201,30 @@ const policy = await buildPolicyPayload({ AI: mockAi });
 assert.ok(policy.items.length >= 2);
 assert.equal(policy.items[0].official, true);
 assert.ok(policy.items[0].title_zh.startsWith('中文政策标题'));
-assert.ok(policy.items[0].summary_zh.includes('RSS'));
+assert.ok(policy.items[0].summary_zh.includes('官方正文'));
 assert.equal(policy.sources['WORKERS AI 中文摘要'].ok, true);
+assert.ok(policy.sources['官方原文正文补充'].count >= 1);
+assert.equal(sawArticleContext, true);
 assert.equal(Object.hasOwn(policy.items[0], '_source_text'), false);
+
+const incompleteAi = {
+  async run() {
+    return {
+      response: JSON.stringify({
+        items: Array.from({ length: 12 }, function (_, id) {
+          return { id: id, title_zh: 'English fallback', summary_zh: '' };
+        }),
+      }),
+    };
+  },
+};
+const fallbackPolicy = await buildPolicyPayload({ AI: incompleteAi });
+const macroFallback = fallbackPolicy.items.find(function (item) {
+  return String(item.category).startsWith('MACRO');
+});
+assert.ok(macroFallback.title_zh.startsWith('宏观政策动态｜'));
+assert.ok(macroFallback.summary_zh.includes('FEDERAL RESERVE'));
+assert.equal(macroFallback.summary_zh.includes('RSS 摘要未提供更多细节'), false);
 
 const pending = [];
 const response = await handleIntelligenceRequest(

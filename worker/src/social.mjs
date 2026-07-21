@@ -20,6 +20,29 @@ function parseMcpResponse(text, contentType) {
   return events.length ? events[events.length - 1] : null;
 }
 
+function parseJsonText(value) {
+  const text = String(value || '').trim().replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '');
+  try {
+    return JSON.parse(text);
+  } catch (_) {
+    const objectStart = text.indexOf('{');
+    const arrayStart = text.indexOf('[');
+    const start = objectStart < 0 ? arrayStart : arrayStart < 0 ? objectStart : Math.min(objectStart, arrayStart);
+    const end = Math.max(text.lastIndexOf('}'), text.lastIndexOf(']'));
+    if (start < 0 || end <= start) throw new Error('remote MCP returned no JSON payload');
+    return JSON.parse(text.slice(start, end + 1));
+  }
+}
+
+function searchItems(payload) {
+  if (Array.isArray(payload)) return payload;
+  if (!payload || typeof payload !== 'object') return [];
+  const direct = payload.items || payload.notes || payload.results || payload.list;
+  if (Array.isArray(direct)) return direct;
+  if (payload.data && payload.data !== payload) return searchItems(payload.data);
+  return [];
+}
+
 async function mcpSearch(env, toolName, keyword) {
   if (!env.XHS_DOUYIN_MCP_TOKEN) throw new Error('XHS_DOUYIN_MCP_TOKEN is not configured');
   const response = await fetchWithTimeout(SOCIAL_MCP_URL, {
@@ -44,16 +67,25 @@ async function mcpSearch(env, toolName, keyword) {
   const parsed = parseMcpResponse(await response.text(), response.headers.get('Content-Type'));
   if (!parsed || parsed.error) throw new Error(toolName + ' invalid MCP response');
   const result = parsed.result || {};
-  const content = result.content || [];
-  const textItem = content.find(function (item) {
-    return item && item.type === 'text';
-  });
-  const text = textItem && String(textItem.text || '').trim();
-  if (result.isError || !text || /^error:/i.test(text)) {
-    throw new Error(toolName + ': ' + (text || 'remote MCP error'));
+  if (result.isError) throw new Error(toolName + ': remote MCP error');
+  const structured = searchItems(result.structuredContent);
+  if (structured.length) return structured;
+  const content = Array.isArray(result.content) ? result.content : [];
+  let lastError = 'remote MCP returned no usable search items';
+  for (let index = content.length - 1; index >= 0; index -= 1) {
+    const item = content[index];
+    if (!item || item.type !== 'text') continue;
+    const text = String(item.text || '').trim();
+    if (!text) continue;
+    if (/^error:/i.test(text)) throw new Error(toolName + ': ' + text);
+    try {
+      const items = searchItems(parseJsonText(text));
+      if (items.length) return items;
+    } catch (error) {
+      lastError = safeError(error);
+    }
   }
-  const payload = JSON.parse(text);
-  return payload.items || payload.notes || payload.data || [];
+  throw new Error(toolName + ': ' + lastError);
 }
 
 function timestampDate(value) {
