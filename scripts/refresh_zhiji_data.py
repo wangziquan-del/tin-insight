@@ -13,6 +13,11 @@ INDICATORS = {
     "shfe_stock": "FU00015998",
     "lme_stock": "FU00015899",
     "social_stock": "ID01517441",
+    "tin_ore_import_total": "CM0000451819",
+    "tin_ore_import_myanmar": "CM0000451826",
+    "tin_ore_import_drc": "a10099501",
+    "indonesia_export": "ID01593795",
+    "malaysia_export": "ID01659306",
     "tc_yunnan": "ID01538256",
     "tc_jiangxi": "ID01538257",
     "smelting_profit": "ID02105841",
@@ -163,6 +168,21 @@ if series["lme_stock"]:
 if series["social_stock"]:
     charts["social_stock"] = seasonal_chart(series["social_stock"])
     latest_data["social_stock"] = latest(series["social_stock"])
+if series["tin_ore_import_total"]:
+    charts["tin_ore_import_total"] = seasonal_chart(series["tin_ore_import_total"])
+    latest_data["tin_ore_import_total"] = latest(series["tin_ore_import_total"])
+if series["tin_ore_import_myanmar"]:
+    charts["myanmar"] = seasonal_chart(series["tin_ore_import_myanmar"])
+    latest_data["tin_ore_import_myanmar"] = latest(series["tin_ore_import_myanmar"])
+if series["tin_ore_import_drc"]:
+    charts["drc"] = seasonal_chart(series["tin_ore_import_drc"])
+    latest_data["tin_ore_import_drc"] = latest(series["tin_ore_import_drc"])
+if series["indonesia_export"]:
+    charts["indo_export"] = seasonal_chart(series["indonesia_export"])
+    latest_data["indo_export"] = latest(series["indonesia_export"])
+if series["malaysia_export"]:
+    charts["malaysia_export"] = seasonal_chart(series["malaysia_export"])
+    latest_data["malaysia_export"] = latest(series["malaysia_export"])
 if series["shfe_stock"] and series["lme_stock"]:
     global_stock = forward_sum(series["shfe_stock"], series["lme_stock"])
     charts["overview_global_stock"] = seasonal_chart(global_stock)
@@ -196,6 +216,11 @@ source_meta.update({
     "shfeStock": meta["shfe_stock"],
     "lmeStock": meta["lme_stock"],
     "socialStock": meta["social_stock"],
+    "tinOreImportTotal": meta["tin_ore_import_total"],
+    "tinOreImportMyanmar": meta["tin_ore_import_myanmar"],
+    "tinOreImportDrc": meta["tin_ore_import_drc"],
+    "indonesiaExport": meta["indonesia_export"],
+    "malaysiaExport": meta["malaysia_export"],
     "tcYunnan": meta["tc_yunnan"],
     "tcJiangxi": meta["tc_jiangxi"],
     "smeltingProfit": meta["smelting_profit"],
@@ -212,6 +237,11 @@ print(json.dumps({
     "lme": latest_data.get("lme"),
     "global_stock": latest_data.get("global_stock"),
     "social_stock": latest_data.get("social_stock"),
+    "tin_ore_import_total": latest_data.get("tin_ore_import_total"),
+    "tin_ore_import_myanmar": latest_data.get("tin_ore_import_myanmar"),
+    "tin_ore_import_drc": latest_data.get("tin_ore_import_drc"),
+    "indonesia_export": latest_data.get("indo_export"),
+    "malaysia_export": latest_data.get("malaysia_export"),
     "tc_yunnan": latest_data.get("tc_yunnan"),
     "warehouses": data.get("warehouse"),
 }, ensure_ascii=False))
