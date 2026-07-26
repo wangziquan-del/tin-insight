@@ -198,13 +198,13 @@ function dedupeSocial(items) {
   return output;
 }
 
-export async function buildSocialPayload(env) {
+export async function buildSocialPayload(env, keyword = '沪锡') {
   const definitions = [
     { tool: 'xhs_search', platform: '小红书' },
     { tool: 'douyin_search', platform: '抖音' },
   ];
   const settled = await Promise.allSettled(definitions.map(function (definition) {
-    return mcpSearch(env, definition.tool, '沪锡');
+    return mcpSearch(env, definition.tool, keyword);
   }));
   const sources = {};
   let combined = [];
@@ -243,6 +243,7 @@ export async function buildSocialPayload(env) {
   });
   return {
     updated_at: shanghaiTimestamp(),
+    keyword: keyword,
     source: '网络平台远程数据源；15 分钟边缘缓存',
     method: '标题关键词倾向与互动热度代理，不读取或伪造评论正文',
     sources: sources,

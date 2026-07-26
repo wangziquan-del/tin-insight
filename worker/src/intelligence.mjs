@@ -130,8 +130,10 @@ export async function handleIntelligenceRequest(request, env, ctx) {
     });
   }
   if (url.pathname === '/api/social') {
-    return cachedJson(request, ctx, 'social-remote-v2', INTELLIGENCE_TTL_SECONDS, INTELLIGENCE_STALE_SECONDS, function () {
-      return buildSocialPayload(env);
+    const commodity = url.searchParams.get('commodity') === 'zinc' ? 'zinc' : 'tin';
+    const keyword = commodity === 'zinc' ? '沪锌' : '沪锡';
+    return cachedJson(request, ctx, 'social-remote-v3-' + commodity, INTELLIGENCE_TTL_SECONDS, INTELLIGENCE_STALE_SECONDS, function () {
+      return buildSocialPayload(env, keyword);
     });
   }
   if (url.pathname === '/api/policy') {
