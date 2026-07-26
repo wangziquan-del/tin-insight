@@ -24,6 +24,7 @@ INDICATORS = {
     "warehouse_singapore": "ID00302752",
     "warehouse_hong_kong": "FU00094556",
     "warehouse_port_klang": "ID00302749",
+    "indonesia_exchange": "FU00082529",
 }
 
 
@@ -132,6 +133,25 @@ def warehouse_row(name, series):
     }
 
 
+def lag_observation_rows(series, lags=(0, 1, 10, 30)):
+    """Build T-n rows from valid observations, retaining observed zero-volume days."""
+    if not series:
+        return []
+    current = series[-1][1]
+    rows = []
+    for lag in lags:
+        if len(series) <= lag:
+            continue
+        day, value = series[-1 - lag]
+        rows.append({
+            "label": "T" if lag == 0 else f"T-{lag}",
+            "date": day,
+            "value": value,
+            "currentMinusReference": current - value,
+        })
+    return rows
+
+
 key = os.environ.get("ZHIJI_API_KEY", "").strip()
 if not key:
     print("ZHIJI_API_KEY is not configured; keeping embedded fallback data")
@@ -210,6 +230,12 @@ warehouses = [
 if any(warehouses):
     data["warehouse"] = [row for row in warehouses if row]
 
+if series["indonesia_exchange"]:
+    data["indonesiaExchange"] = {
+        "meta": meta["indonesia_exchange"],
+        "rows": lag_observation_rows(series["indonesia_exchange"]),
+    }
+
 source_meta = data.setdefault("sourceMeta", {})
 source_meta.update({
     "lmePrice": meta["lme_price"],
@@ -224,6 +250,7 @@ source_meta.update({
     "tcYunnan": meta["tc_yunnan"],
     "tcJiangxi": meta["tc_jiangxi"],
     "smeltingProfit": meta["smelting_profit"],
+    "indonesiaExchange": meta["indonesia_exchange"],
     "warehouses": {
         "新加坡": meta["warehouse_singapore"],
         "中国香港": meta["warehouse_hong_kong"],
@@ -243,5 +270,6 @@ print(json.dumps({
     "indonesia_export": latest_data.get("indo_export"),
     "malaysia_export": latest_data.get("malaysia_export"),
     "tc_yunnan": latest_data.get("tc_yunnan"),
+    "indonesia_exchange": data.get("indonesiaExchange"),
     "warehouses": data.get("warehouse"),
 }, ensure_ascii=False))
