@@ -7,6 +7,10 @@ import {
 
 const ZHIJI_KLINE_URL = 'https://zhiji-ai.xyz/guan/api/kline';
 const SINA_MINUTE_URL = 'https://stock2.finance.sina.com.cn/futures/api/jsonp.php/=/InnerFuturesNewService.getFewMinLine';
+const TECHNICAL_PROFILES = {
+  tin: { zhiji: 'SN', sina: 'SN0', label: '沪锡' },
+  zinc: { zhiji: 'ZN', sina: 'ZN0', label: '沪锌' },
+};
 
 function normalizeBar(item) {
   const time = String(item.time || item.date || item.datetime || item.trade_date || item.d || '');
@@ -25,10 +29,10 @@ function normalizeBar(item) {
   };
 }
 
-async function fetchKline(env, freq, limit) {
+async function fetchKline(env, freq, limit, symbol) {
   if (!env.ZHIJI_API_KEY) throw new Error('ZHIJI_API_KEY is not configured');
   const url = new URL(ZHIJI_KLINE_URL);
-  url.searchParams.set('symbol', 'SN');
+  url.searchParams.set('symbol', symbol);
   url.searchParams.set('freq', freq);
   url.searchParams.set('cont', '1');
   url.searchParams.set('limit', String(limit || 320));
@@ -47,9 +51,9 @@ async function fetchKline(env, freq, limit) {
   return bars.slice(-(limit || 320));
 }
 
-async function fetchSinaMinute(period, limit) {
+async function fetchSinaMinute(period, limit, symbol) {
   const url = new URL(SINA_MINUTE_URL);
-  url.searchParams.set('symbol', 'SN0');
+  url.searchParams.set('symbol', symbol);
   url.searchParams.set('type', period);
   const response = await fetchWithTimeout(url.toString(), {
     headers: {
@@ -191,11 +195,12 @@ function klinePayload(bars) {
   };
 }
 
-export async function buildTechnicalPayload(env) {
+export async function buildTechnicalPayload(env, commodity = 'tin') {
+  const profile = TECHNICAL_PROFILES[commodity] || TECHNICAL_PROFILES.tin;
   const definitions = [
-    { freq: '15min', frame: '15 分钟', run: function () { return fetchSinaMinute('15', 320); } },
-    { freq: '60min', frame: '60 分钟', run: function () { return fetchSinaMinute('60', 320); } },
-    { freq: 'D', frame: '日线', run: function () { return fetchKline(env, 'D', 320); } },
+    { freq: '15min', frame: '小级别｜15 分钟', run: function () { return fetchSinaMinute('15', 320, profile.sina); } },
+    { freq: '60min', frame: '中级别｜60 分钟', run: function () { return fetchSinaMinute('60', 320, profile.sina); } },
+    { freq: 'D', frame: '大级别｜日线', run: function () { return fetchKline(env, 'D', 320, profile.zhiji); } },
   ];
   const settled = await Promise.allSettled(definitions.map(function (definition) {
     return definition.run();
@@ -221,7 +226,8 @@ export async function buildTechnicalPayload(env) {
   }
   return {
     updated_at: shanghaiTimestamp(),
-    source: '新浪 15/60 分钟 K + 智辑日 K；5 分钟边缘缓存',
+    source: profile.label + '｜新浪 15/60 分钟 K + 智辑日 K；5 分钟边缘缓存',
+    commodity: commodity,
     tech: tech,
     kline: klinePayload(dailyBars),
     errors: errors,

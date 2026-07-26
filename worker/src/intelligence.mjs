@@ -125,8 +125,9 @@ export async function runScheduledChecks(env, quoteCheck) {
 export async function handleIntelligenceRequest(request, env, ctx) {
   const url = new URL(request.url);
   if (url.pathname === '/api/technical') {
-    return cachedJson(request, ctx, 'technical', TECH_TTL_SECONDS, TECH_STALE_SECONDS, function () {
-      return buildTechnicalPayload(env);
+    const commodity = url.searchParams.get('commodity') === 'zinc' ? 'zinc' : 'tin';
+    return cachedJson(request, ctx, 'technical-v2-' + commodity, TECH_TTL_SECONDS, TECH_STALE_SECONDS, function () {
+      return buildTechnicalPayload(env, commodity);
     });
   }
   if (url.pathname === '/api/social') {
