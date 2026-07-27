@@ -156,9 +156,7 @@ function parseSinaRows(text) {
 }
 
 async function fetchSina(profile) {
-  const url = new URL(SINA_BASE_URL);
-  url.searchParams.set('rn', `${profile.commodity}-worker`);
-  url.searchParams.set('list', profile.sinaSymbols);
+  const url = `${SINA_BASE_URL}?rn=${encodeURIComponent(`${profile.commodity}-worker`)}&list=${profile.sinaSymbols}`;
   const response = await fetch(url, {
     headers: {
       Referer: 'https://finance.sina.com.cn/',
