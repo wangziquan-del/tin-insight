@@ -21,6 +21,7 @@ const sinaText = [
   'var hq_str_hf_SND=' + quote + '53385,0,0,0,0,0,09:45:00,53225,0,0,0,0,2026-07-20,LME锡' + quote + ';',
   'var hq_str_s_sh000852=' + quote + '中证1000,7200,10,0.14' + quote + ';',
 ].join('\n');
+const zincSinaText = 'var hq_str_hf_ZSD=' + quote + '3604.175,0,0,0,0,0,10:42:59,3592,0,0,0,0,2026-07-27,伦锌' + quote + ';';
 
 let upstreamCalls = 0;
 globalThis.caches = { default: new MemoryCache() };
@@ -28,6 +29,14 @@ globalThis.fetch = async (input) => {
   const url = String(input);
   upstreamCalls += 1;
   if (url.startsWith('https://zhiji-ai.xyz/')) {
+    const symbols = new URL(url).searchParams.get('symbols');
+    if (symbols === 'ZN') {
+      return new Response(JSON.stringify({
+        quotes: [
+          { product: 'ZN', symbol: 'zn2609', name: '沪锌', last: 24810, change_pct: -0.2, time: '10:43:01', open_interest: 110746, volume: 42647 },
+        ],
+      }), { status: 200, headers: { 'Content-Type': 'application/json' } });
+    }
     return new Response(JSON.stringify({
       quotes: [
         { product: 'SN', symbol: 'sn2608', name: '沪锡', last: 414000, change_pct: 0.7, time: '09:45:01', open_interest: 34000, volume: 160000 },
@@ -37,7 +46,8 @@ globalThis.fetch = async (input) => {
     }), { status: 200, headers: { 'Content-Type': 'application/json' } });
   }
   if (url.startsWith('https://hq.sinajs.cn/')) {
-    return new Response(new TextEncoder().encode(sinaText), { status: 200 });
+    const symbols = new URL(url).searchParams.get('list');
+    return new Response(new TextEncoder().encode(symbols === 'hf_ZSD' ? zincSinaText : sinaText), { status: 200 });
   }
   throw new Error('Unexpected upstream: ' + url);
 };
@@ -70,6 +80,17 @@ const second = await call('/api/quotes', {
 });
 assert.equal(second.headers.get('X-Tin-Cache'), 'HIT');
 assert.equal(upstreamCalls, 2);
+
+const zinc = await call('/api/quotes?commodity=zinc', {
+  headers: { Origin: 'https://wangziquan-del.github.io' },
+});
+assert.equal(zinc.status, 200);
+assert.equal(zinc.headers.get('X-Tin-Cache'), 'MISS');
+const zincPayload = await zinc.json();
+assert.equal(zincPayload.commodity, 'zinc');
+assert.equal(zincPayload.zn.last, 24810);
+assert.equal(zincPayload.lme.last, 3604.175);
+assert.equal(upstreamCalls, 4);
 
 const health = await call('/health');
 assert.equal(health.status, 200);

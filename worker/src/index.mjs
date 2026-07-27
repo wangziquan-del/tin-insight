@@ -4,9 +4,29 @@ import {
 } from './intelligence.mjs';
 
 const ZHIJI_URL = 'https://zhiji-ai.xyz/guan/api/quote';
-const SINA_URL = 'https://hq.sinajs.cn/rn=tin-worker&list=hf_SND,s_sh000852';
+const SINA_BASE_URL = 'https://hq.sinajs.cn/';
 const CACHE_TTL_SECONDS = 15;
 const STALE_TTL_SECONDS = 300;
+const QUOTE_PROFILES = {
+  tin: {
+    commodity: 'tin',
+    zhijiSymbols: 'SN,AG,CU',
+    requiredProduct: 'SN',
+    sinaSymbols: 'hf_SND,s_sh000852',
+    lmeCode: 'hf_SND',
+    lmeSymbol: 'SND',
+    lmeName: 'LME 锡',
+  },
+  zinc: {
+    commodity: 'zinc',
+    zhijiSymbols: 'ZN',
+    requiredProduct: 'ZN',
+    sinaSymbols: 'hf_ZSD',
+    lmeCode: 'hf_ZSD',
+    lmeSymbol: 'ZSD',
+    lmeName: 'LME 锌',
+  },
+};
 const ALLOWED_ORIGINS = new Set([
   'https://wangziquan-del.github.io',
 ]);
@@ -87,10 +107,10 @@ function cacheKey(url, slot) {
   return new Request(key.toString(), { method: 'GET' });
 }
 
-async function fetchZhiji(env, updatedAt) {
+async function fetchZhiji(env, updatedAt, profile) {
   if (!env.ZHIJI_API_KEY) throw new Error('ZHIJI_API_KEY is not configured');
   const url = new URL(ZHIJI_URL);
-  url.searchParams.set('symbols', 'SN,AG,CU');
+  url.searchParams.set('symbols', profile.zhijiSymbols);
   url.searchParams.set('key', env.ZHIJI_API_KEY);
   const response = await fetch(url, {
     headers: { 'User-Agent': 'Tin Insight Cloudflare Worker' },
@@ -115,7 +135,9 @@ async function fetchZhiji(env, updatedAt) {
       source: '智辑实时行情',
     };
   }
-  if (!result.SN || result.SN.last == null) throw new Error('Zhiji returned no SN quote');
+  if (!result[profile.requiredProduct] || result[profile.requiredProduct].last == null) {
+    throw new Error(`Zhiji returned no ${profile.requiredProduct} quote`);
+  }
   return result;
 }
 
@@ -133,8 +155,11 @@ function parseSinaRows(text) {
   return rows;
 }
 
-async function fetchSina() {
-  const response = await fetch(SINA_URL, {
+async function fetchSina(profile) {
+  const url = new URL(SINA_BASE_URL);
+  url.searchParams.set('rn', `${profile.commodity}-worker`);
+  url.searchParams.set('list', profile.sinaSymbols);
+  const response = await fetch(url, {
     headers: {
       Referer: 'https://finance.sina.com.cn/',
       'User-Agent': 'Mozilla/5.0 (Tin Insight Cloudflare Worker)',
@@ -144,13 +169,13 @@ async function fetchSina() {
   const bytes = await response.arrayBuffer();
   const text = new TextDecoder('gb18030').decode(bytes);
   const rows = parseSinaRows(text);
-  const lmeRow = rows.hf_SND;
+  const lmeRow = rows[profile.lmeCode];
   const csiRow = rows.s_sh000852;
   const lmeLast = lmeRow && number(lmeRow[0]);
   return {
     lme: lmeLast == null ? null : {
-      symbol: 'SND',
-      name: lmeRow[13] || 'LME 锡',
+      symbol: profile.lmeSymbol,
+      name: lmeRow[13] || profile.lmeName,
       last: lmeLast,
       change_pct: pct(lmeLast, number(lmeRow[7])),
       time: lmeRow[6] || null,
@@ -169,15 +194,26 @@ async function fetchSina() {
   };
 }
 
-async function buildQuotePayload(env) {
+async function buildQuotePayload(env, commodity = 'tin') {
+  const profile = QUOTE_PROFILES[commodity];
+  if (!profile) throw new Error(`Unsupported commodity: ${commodity}`);
   const updatedAt = shanghaiTimestamp();
   const [zhijiResult, sinaResult] = await Promise.allSettled([
-    fetchZhiji(env, updatedAt),
-    fetchSina(),
+    fetchZhiji(env, updatedAt, profile),
+    fetchSina(profile),
   ]);
   if (zhijiResult.status !== 'fulfilled') throw zhijiResult.reason;
   const quotes = zhijiResult.value;
   const market = sinaResult.status === 'fulfilled' ? sinaResult.value : {};
+  if (commodity === 'zinc') {
+    return {
+      updated_at: updatedAt,
+      commodity,
+      source: 'Worker 实时行情；15 秒边缘缓存',
+      zn: quotes.ZN,
+      lme: market.lme || null,
+    };
+  }
   const sn = quotes.SN;
   const ag = quotes.AG || null;
   const cu = quotes.CU || null;
@@ -200,15 +236,22 @@ async function buildQuotePayload(env) {
 
 async function quoteResponse(request, env, ctx) {
   const url = new URL(request.url);
+  const commodity = String(url.searchParams.get('commodity') || 'tin').toLowerCase();
   const origin = request.headers.get('Origin');
+  if (!QUOTE_PROFILES[commodity]) {
+    return withCors(jsonResponse({
+      error: 'unsupported_commodity',
+      supported: Object.keys(QUOTE_PROFILES),
+    }, 400, { 'Cache-Control': 'no-store' }), origin, 'ERROR');
+  }
   const cache = caches.default;
-  const freshKey = cacheKey(url, 'quotes-fresh');
-  const staleKey = cacheKey(url, 'quotes-stale');
+  const freshKey = cacheKey(url, `quotes-${commodity}-fresh`);
+  const staleKey = cacheKey(url, `quotes-${commodity}-stale`);
   const cached = await cache.match(freshKey);
   if (cached) return withCors(cached, origin, 'HIT');
 
   try {
-    const payload = await buildQuotePayload(env);
+    const payload = await buildQuotePayload(env, commodity);
     const fresh = jsonResponse(payload, 200, {
       'Cache-Control': `public, max-age=5, s-maxage=${CACHE_TTL_SECONDS}`,
     });
