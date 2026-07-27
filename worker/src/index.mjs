@@ -132,7 +132,7 @@ async function fetchZhiji(env, updatedAt, profile) {
       date: updatedAt.slice(0, 10),
       open_interest: number(item.open_interest),
       volume: number(item.volume),
-      source: '智辑实时行情',
+      source: '网络实时行情',
     };
   }
   if (!result[profile.requiredProduct] || result[profile.requiredProduct].last == null) {
@@ -207,7 +207,7 @@ async function buildQuotePayload(env, commodity = 'tin') {
     return {
       updated_at: updatedAt,
       commodity,
-      source: 'Worker 实时行情；15 秒边缘缓存',
+      source: '网络实时行情；15 秒边缘缓存',
       zn: quotes.ZN,
       lme: market.lme || null,
     };
@@ -218,7 +218,7 @@ async function buildQuotePayload(env, commodity = 'tin') {
   const csi1000 = market.csi1000 || null;
   return {
     updated_at: updatedAt,
-    source: 'Worker 实时行情；15 秒边缘缓存',
+    source: '网络实时行情；15 秒边缘缓存',
     sn,
     lme: market.lme || null,
     ag,

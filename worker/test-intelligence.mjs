@@ -170,6 +170,7 @@ const technical = await buildTechnicalPayload({ ZHIJI_API_KEY: 'test-key' });
 assert.equal(technical.tech.length, 3);
 assert.equal(technical.kline.candles.length, 320);
 assert.ok(technical.kline.mas.MA288.at(-1) > 0);
+assert.doesNotMatch(technical.source, /智辑|直集|Zhiji/i);
 
 const social = await buildSocialPayload({ XHS_DOUYIN_MCP_TOKEN: 'test-token' });
 assert.equal(social.items.length, 2);

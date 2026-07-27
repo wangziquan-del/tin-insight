@@ -71,6 +71,8 @@ assert.equal(first.headers.get('Access-Control-Allow-Origin'), 'https://wangziqu
 assert.equal(first.headers.get('X-Tin-Cache'), 'MISS');
 const firstPayload = await first.json();
 assert.equal(firstPayload.sn.last, 414000);
+assert.equal(firstPayload.sn.source, '网络实时行情');
+assert.doesNotMatch(firstPayload.source, /智辑|直集|Zhiji/i);
 assert.equal(firstPayload.lme.last, 53385);
 assert.ok(firstPayload.ratios.tin_silver.value > 30);
 assert.equal(upstreamCalls, 2);
@@ -89,6 +91,7 @@ assert.equal(zinc.headers.get('X-Tin-Cache'), 'MISS');
 const zincPayload = await zinc.json();
 assert.equal(zincPayload.commodity, 'zinc');
 assert.equal(zincPayload.zn.last, 24810);
+assert.equal(zincPayload.zn.source, '网络实时行情');
 assert.equal(zincPayload.lme.last, 3604.175);
 assert.equal(upstreamCalls, 4);
 

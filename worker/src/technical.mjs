@@ -226,7 +226,7 @@ export async function buildTechnicalPayload(env, commodity = 'tin') {
   }
   return {
     updated_at: shanghaiTimestamp(),
-    source: profile.label + '｜新浪 15/60 分钟 K + 智辑日 K；5 分钟边缘缓存',
+    source: profile.label + '｜新浪 15/60 分钟 K + 网络日 K；5 分钟边缘缓存',
     commodity: commodity,
     tech: tech,
     kline: klinePayload(dailyBars),
