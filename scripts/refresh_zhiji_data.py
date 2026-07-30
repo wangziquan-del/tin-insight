@@ -13,7 +13,8 @@ INDICATORS = {
     "shfe_stock": "FU00015998",
     "lme_stock": "FU00015899",
     "social_stock": "ID01517441",
-    "tin_ore_import_total": "CM0000451819",
+    # 2026-07-30 起：进口总量图改主数据库“矿端平衡”总进口（金属吨）口径，
+    # 由 _tin_pages_update 脚本注入，知几 SMM 金属量系列无权限返回空，勿再从此刷新覆盖
     "tin_ore_import_myanmar": "CM0000451826",
     "tin_ore_import_drc": "a10099501",
     "indonesia_export": "ID01593795",
@@ -188,9 +189,7 @@ if series["lme_stock"]:
 if series["social_stock"]:
     charts["social_stock"] = seasonal_chart(series["social_stock"])
     latest_data["social_stock"] = latest(series["social_stock"])
-if series["tin_ore_import_total"]:
-    charts["tin_ore_import_total"] = seasonal_chart(series["tin_ore_import_total"])
-    latest_data["tin_ore_import_total"] = latest(series["tin_ore_import_total"])
+# tin_ore_import_total 不再由知几刷新（金属吨口径由主数据库注入，见 INDICATORS 注释）
 if series["tin_ore_import_myanmar"]:
     charts["myanmar"] = seasonal_chart(series["tin_ore_import_myanmar"])
     latest_data["tin_ore_import_myanmar"] = latest(series["tin_ore_import_myanmar"])
@@ -242,7 +241,6 @@ source_meta.update({
     "shfeStock": meta["shfe_stock"],
     "lmeStock": meta["lme_stock"],
     "socialStock": meta["social_stock"],
-    "tinOreImportTotal": meta["tin_ore_import_total"],
     "tinOreImportMyanmar": meta["tin_ore_import_myanmar"],
     "tinOreImportDrc": meta["tin_ore_import_drc"],
     "indonesiaExport": meta["indonesia_export"],
