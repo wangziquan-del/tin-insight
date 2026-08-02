@@ -41,9 +41,11 @@ def fetch_series(indicator_id, key):
         "id": indicator_id,
         "start": "2021-01-01",
         "end": date.today().isoformat(),
-        "key": key,
     })
-    request = Request(API_URL + "?" + query, headers={"User-Agent": "Tin Dashboard GitHub Actions"})
+    request = Request(API_URL + "?" + query, headers={
+        "User-Agent": "Tin Dashboard GitHub Actions",
+        "X-Data-Key": key,
+    })
     with urlopen(request, timeout=40) as response:
         payload = json.loads(response.read().decode("utf-8"))
     if payload.get("error"):

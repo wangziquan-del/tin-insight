@@ -111,9 +111,8 @@ async function fetchZhiji(env, updatedAt, profile) {
   if (!env.ZHIJI_API_KEY) throw new Error('ZHIJI_API_KEY is not configured');
   const url = new URL(ZHIJI_URL);
   url.searchParams.set('symbols', profile.zhijiSymbols);
-  url.searchParams.set('key', env.ZHIJI_API_KEY);
   const response = await fetch(url, {
-    headers: { 'User-Agent': 'Tin Insight Cloudflare Worker' },
+    headers: { 'User-Agent': 'Tin Insight Cloudflare Worker', 'X-Guan-Key': env.ZHIJI_API_KEY },
   });
   if (!response.ok) throw new Error(`Zhiji HTTP ${response.status}`);
   const payload = await response.json();

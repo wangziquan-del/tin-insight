@@ -36,9 +36,8 @@ async function fetchKline(env, freq, limit, symbol) {
   url.searchParams.set('freq', freq);
   url.searchParams.set('cont', '1');
   url.searchParams.set('limit', String(limit || 320));
-  url.searchParams.set('key', env.ZHIJI_API_KEY);
   const response = await fetchWithTimeout(url.toString(), {
-    headers: { 'User-Agent': 'Tin Insight Cloudflare Worker/1.0' },
+    headers: { 'User-Agent': 'Tin Insight Cloudflare Worker/1.0', 'X-Guan-Key': env.ZHIJI_API_KEY },
   }, 30000);
   if (!response.ok) throw new Error('Zhiji kline ' + freq + ' HTTP ' + response.status);
   const payload = await response.json();
