@@ -48,13 +48,6 @@ def main() -> None:
     if any(str(item.get("title_zh") or "").startswith("锡产业动态｜") for item in macro_items):
         raise RuntimeError("A macro event is still mislabeled as a tin-industry update")
 
-    social = get_json("/api/social?smoke=github-v2")
-    social_sources = social.get("sources") or {}
-    for platform in ("小红书", "抖音"):
-        status = social_sources.get(platform) or {}
-        if not status.get("ok") or int(status.get("count") or 0) <= 0:
-            raise RuntimeError(f"{platform} remote MCP source failed: {status}")
-
     technical_diag = {}
     try:
         technical = get_json("/api/technical?smoke=github-v3")
@@ -67,6 +60,13 @@ def main() -> None:
     except Exception as error:  # noqa: BLE001 - diagnostics only, never fail the step
         technical_diag = {"fetch_error": str(error)[:300]}
     print("TECHNICAL_DIAG " + json.dumps(technical_diag, ensure_ascii=False))
+
+    social = get_json("/api/social?smoke=github-v2")
+    social_sources = social.get("sources") or {}
+    for platform in ("小红书", "抖音"):
+        status = social_sources.get(platform) or {}
+        if not status.get("ok") or int(status.get("count") or 0) <= 0:
+            raise RuntimeError(f"{platform} remote MCP source failed: {status}")
 
     sample = [
         {"title_zh": item["title_zh"], "summary_zh": item["summary_zh"]}
