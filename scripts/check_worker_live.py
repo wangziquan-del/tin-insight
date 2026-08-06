@@ -55,6 +55,19 @@ def main() -> None:
         if not status.get("ok") or int(status.get("count") or 0) <= 0:
             raise RuntimeError(f"{platform} remote MCP source failed: {status}")
 
+    technical_diag = {}
+    try:
+        technical = get_json("/api/technical?smoke=github-v3")
+        technical_diag = {
+            "updated_at": technical.get("updated_at"),
+            "errors": technical.get("errors") or {},
+            "frames": [item.get("frame") for item in technical.get("tech") or []],
+            "kline_last": (technical.get("kline") or {}).get("labels", [None])[-1],
+        }
+    except Exception as error:  # noqa: BLE001 - diagnostics only, never fail the step
+        technical_diag = {"fetch_error": str(error)[:300]}
+    print("TECHNICAL_DIAG " + json.dumps(technical_diag, ensure_ascii=False))
+
     sample = [
         {"title_zh": item["title_zh"], "summary_zh": item["summary_zh"]}
         for item in items[:2]
