@@ -40,10 +40,13 @@ jobs:
         env:
           ZHIJI_API_KEY: ${{ secrets.ZHIJI_API_KEY }}
         run: python scripts/build_technical_snapshot.py
+      - name: Build social snapshot (static fallback for /api/social)
+        continue-on-error: true
+        run: python scripts/build_social_snapshot.py
       - name: Prepare static site
         run: |
           mkdir _site
-          cp index.html quotes.json technical.json site.webmanifest .nojekyll _site/
+          cp index.html quotes.json technical.json social.json site.webmanifest .nojekyll _site/
           cp -R assets _site/
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v4
