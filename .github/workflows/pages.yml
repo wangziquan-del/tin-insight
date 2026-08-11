@@ -43,17 +43,20 @@ jobs:
       - name: Build social snapshot (static fallback for /api/social)
         continue-on-error: true
         run: python scripts/build_social_snapshot.py
+      - name: Build policy snapshot (static fallback for /api/policy, incl. Fed RSS)
+        continue-on-error: true
+        run: python scripts/build_policy_snapshot.py
       - name: Commit snapshots back to repo (keep-last-good source)
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add technical.json quotes.json social.json
+          git add technical.json quotes.json social.json policy.json
           git diff --cached --quiet || git commit -m "chore: refresh data snapshots [skip ci]"
           git push
       - name: Prepare static site
         run: |
           mkdir _site
-          cp index.html quotes.json technical.json social.json site.webmanifest .nojekyll _site/
+          cp index.html quotes.json technical.json social.json policy.json site.webmanifest .nojekyll _site/
           cp -R assets _site/
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v4
