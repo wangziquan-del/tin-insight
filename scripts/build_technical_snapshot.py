@@ -13,6 +13,7 @@ from __future__ import annotations
 import json
 import os
 import re
+import time
 from datetime import datetime
 from pathlib import Path
 from urllib.parse import urlencode
@@ -40,10 +41,34 @@ SINA_HEADERS = {
 # ------------------------------------------------------------------ fetching
 def fetch_sina(freq: str, limit: int) -> list[dict]:
     url = SINA_MINUTE_URL + "?" + urlencode({"symbol": "SN0", "type": freq})
-    request = Request(url, headers=SINA_HEADERS)
+    last_error: Exception | None = None
+    for attempt in range(3):  # 新浪对 CI 出口 IP 间歇性 SSL 超时，退避重试
+        try:
+            request = Request(url, headers=SINA_HEADERS)
+            with urlopen(request, timeout=40) as response:
+                text = response.read().decode("utf-8", errors="replace")
+            return parse_jsonp_bars(text)[-limit:]
+        except Exception as error:  # noqa: BLE001
+            last_error = error
+            time.sleep(4 * (attempt + 1))
+    raise last_error
+
+
+def fetch_zhiji_minute(freq: str, limit: int, key: str) -> list[dict]:
+    """知几分钟 K（freq=15/60，ifind 源）。注意：15min/60min 字样会被静默降级成日线，必须用 15/60。"""
+    query = urlencode({"symbol": "SN", "freq": freq, "cont": "1", "limit": str(limit), "key": key})
+    request = Request(
+        ZHIJI_KLINE_URL + "?" + query,
+        headers={"User-Agent": "Tin Dashboard GitHub Actions", "X-Guan-Key": key},
+    )
     with urlopen(request, timeout=40) as response:
-        text = response.read().decode("utf-8", errors="replace")
-    return parse_jsonp_bars(text)[-limit:]
+        payload = json.loads(response.read().decode("utf-8"))
+    raw = payload.get("bars") or payload.get("data") or []
+    bars = [bar for bar in (normalize_bar(item) for item in raw) if bar]
+    bars.sort(key=lambda bar: bar["time"])
+    if len(bars) < 20 or ":" not in str(bars[-1]["time"]):
+        raise RuntimeError(f"Zhiji {freq}min kline unusable ({len(bars)} bars)")
+    return bars[-limit:]
 
 
 def fetch_sina_daily(limit: int) -> list[dict]:
@@ -192,15 +217,22 @@ def kline_payload(bars: list[dict]) -> dict:
 def main() -> None:
     errors: dict[str, str] = {}
     tech: list[dict] = []
+    key = os.environ.get("ZHIJI_API_KEY", "").strip()
 
     for freq, frame in (("15", "小级别｜15 分钟"), ("60", "中级别｜60 分钟")):
         try:
             tech.append(tech_card(frame, fetch_sina(freq, 320)))
         except Exception as error:  # noqa: BLE001
-            errors[f"{freq}min"] = str(error)[:200]
+            errors[f"{freq}min-sina"] = str(error)[:200]
+            if key:  # 新浪挂了 → 知几分钟 K 兜底
+                try:
+                    tech.append(tech_card(frame, fetch_zhiji_minute(freq, 320, key)))
+                    errors.pop(f"{freq}min-sina")
+                    errors[f"{freq}min"] = "新浪失败，已用知几兜底"
+                except Exception as error2:  # noqa: BLE001
+                    errors[f"{freq}min-zhiji"] = str(error2)[:200]
 
     daily_bars: list[dict] | None = None
-    key = os.environ.get("ZHIJI_API_KEY", "").strip()
     if key:
         try:
             daily_bars = fetch_zhiji_daily(320, key)
@@ -218,6 +250,19 @@ def main() -> None:
         daily_bars = None
     else:
         tech.append(tech_card("大级别｜日线", daily_bars))
+
+    # 保留最近一次成功的框架：本次缺的小级别用仓库里已提交的旧快照补位，避免页面掉级别
+    if OUT.exists():
+        try:
+            previous = json.loads(OUT.read_text(encoding="utf-8"))
+            have = {item["frame"] for item in tech}
+            for old_card in previous.get("tech") or []:
+                if old_card.get("frame") not in have:
+                    tech.insert(0 if "15" in old_card["frame"] else min(1, len(tech)), old_card)
+                    errors[f"reused-{old_card['frame']}"] = f"沿用 {previous.get('updated_at', '?')} 快照"
+            tech.sort(key=lambda item: ("15" not in item["frame"], "60" not in item["frame"]))
+        except Exception:  # noqa: BLE001
+            pass
 
     payload = {
         "updated_at": datetime.now(SHANGHAI).isoformat(timespec="seconds"),
